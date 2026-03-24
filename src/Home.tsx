@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDebounce } from "./useDebounce";
 
 const fetchColors = async () => {
@@ -9,19 +9,33 @@ const fetchColors = async () => {
 
 export default function Home() {
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 1000)
+  const debouncedSearch = useDebounce(search, 1000);
+  const [page, setPage] = useState(1);
+  const limit = 20;
   const { data, isLoading, error, isError } = useQuery({
-    queryKey: ["colors", debouncedSearch],
+    queryKey: ["colors", debouncedSearch, page],
     queryFn: fetchColors,
     retry: 2,
+    placeholderData: (prev) => prev,
     select: (data) => {
-      const colors = data.data
+      const colors = data.data;
 
-      if(!debouncedSearch) return colors.slice(0,30)
+      const filtered = debouncedSearch
+        ? colors.filter((c: any) =>
+            c.name.toLowerCase().includes(debouncedSearch.toLowerCase()),
+          )
+        : colors;
 
-      return colors.filter((c: any) => c.name.toLowerCase().includes(debouncedSearch.toLowerCase())).slice(0, 30)
-    }
+      const start = (page - 1) * limit;
+      const end = page * limit;
+
+      return filtered.slice(start, end);
+    },
   });
+
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch])
 
   if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error: {error.message}</div>;
@@ -61,6 +75,20 @@ export default function Home() {
             </div>
           </div>
         ))}
+      </div>
+      <div className="flex gap-4 mt-6">
+        <button
+          onClick={() => setPage((p) => Math.max(p - 1, 1))}
+          className="px-4 py-2 bg-zinc-800 text-white rounded"
+        >
+          Prev
+        </button>
+        <button
+          onClick={() => setPage((p) => p + 1)}
+          className="px-4 py-2 bg-zinc-800 text-white rounded"
+        >
+          Next
+        </button>
       </div>
     </div>
   );
